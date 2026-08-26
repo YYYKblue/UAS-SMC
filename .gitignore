@@ -1,0 +1,17 @@
+# Local scratch and rendered inspection files
+tmp/
+
+# MATLAB generated files
+*.asv
+*.autosave
+*.m~
+*.mex*
+slprj/
+codegen/
+
+# Editor and operating-system metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
