@@ -27,9 +27,10 @@ else
     optimizer_options = localMergeStruct(defaultOptions, optimizer_options);
 end
 
-lowerBounds = [0.5, 0.25, 0.25, 0.2, 0.2, 0.1, 0.1, 0.2];
-upperBounds = [5.0, 5.00, 5.00, 8.0, 12., 8.0, 8.0, 15.];
-baselineQ = [2, 1, 1, 1, 1, 1, 1, 4];
+parameterNames = {'p1', 'poleGap12', 'poleGap23', 'xi2', 'xiGap', 'beta', 'k'};
+lowerBounds = [0.5, 0.25, 0.25, 0.2, 0.2, 0.1, 0.2];
+upperBounds = [5.0, 5.00, 5.00, 8.0, 12., 8.0, 15.];
+baselineQ = [2, 1, 1, 1, 1, 1, 4];
 
 nominalParams = localNominalParameters();
 nominalModel = localBuildModel(nominalParams);
@@ -165,6 +166,8 @@ optimization_report.metadata = struct( ...
     'iterations', optimizer_options.iterations, ...
     'trainingScenarioCount', numel(trainingScenarios), ...
     'validationScenarioCount', numel(validationScenarios), ...
+    'parameterCount', numel(parameterNames), ...
+    'parameterNames', {parameterNames}, ...
     'localRounds', localRounds, ...
     'Ts', optimizer_options.Ts, ...
     'Tend', optimizer_options.Tend);
@@ -252,14 +255,16 @@ ctrl = struct( ...
     'poles', [p1 p2 p3], ...
     'xi2', q(4), ...
     'xi1', q(4) + q(5), ...
-    'alpha', q(6), ...
-    'beta', q(7), ...
-    'a', -q(6), ...
-    'b', q(7), ...
-    'k', q(8), ...
+    'beta', q(6), ...
+    'k', q(7), ...
     'm_aux', 0.01, ...
     'u_max', 12, ...
     'tol', 1e-12);
+geometry = uas_smc_auxiliary_geometry(ctrl);
+ctrl.alpha = geometry.alpha;
+ctrl.a = geometry.a;
+ctrl.b = geometry.b;
+ctrl.auxiliary_side_scale = geometry.sideScale;
 end
 
 function design = localBuildDesign(model, ctrl)
@@ -349,6 +354,7 @@ minimumN = inf(1, scenarioCount);
 previousVoltage = zeros(1, scenarioCount);
 lastOutsideTime = -options.Ts * ones(1, scenarioCount);
 allFinite = true(1, scenarioCount);
+geometry = uas_smc_auxiliary_geometry(ctrl);
 
 for sample = 1:sampleCount
     currentTime = (sample - 1) * options.Ts;
@@ -356,17 +362,17 @@ for sample = 1:sampleCount
     s1 = sigma + ctrl.xi1 * eta;
     s2 = sigma + ctrl.xi2 * eta;
 
-    omega1 = ones(1, scenarioCount);
-    omega2 = ctrl.alpha * ones(1, scenarioCount);
+    omega1 = geometry.omega1(1) * ones(1, scenarioCount);
+    omega2 = geometry.omega2(1) * ones(1, scenarioCount);
     region1 = s1 < 0 & s2 >= 0;
     region2 = s1 >= 0 & s2 < 0;
     region3 = s1 >= 0 & s2 >= 0;
-    omega1(region1) = -1;
-    omega2(region1) = ctrl.beta;
-    omega1(region2) = 1;
-    omega2(region2) = -ctrl.beta;
-    omega1(region3) = -1;
-    omega2(region3) = -ctrl.alpha;
+    omega1(region1) = geometry.omega1(2);
+    omega2(region1) = geometry.omega2(2);
+    omega1(region2) = geometry.omega1(3);
+    omega2(region2) = geometry.omega2(3);
+    omega1(region3) = geometry.omega1(4);
+    omega2(region3) = geometry.omega2(4);
 
     epsilon = ones(1, scenarioCount);
     firstBlend = s1 .* s2 <= 0 & abs(s1) > ctrl.tol;

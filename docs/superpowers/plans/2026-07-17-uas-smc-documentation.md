@@ -217,12 +217,12 @@ s_1=\sigma+\xi_1\eta,\qquad s_2=\sigma+\xi_2\eta,
 
 ```math
 (\omega_{01},\omega_{02})=(1,\alpha),
-\quad(-1,\beta),
-\quad(1,-\beta),
+\quad(-\lambda,\lambda\beta),
+\quad(\lambda,-\lambda\beta),
 \quad(-1,-\alpha).
 ```
 
-由 `h_i=omega_i1*sigma+omega_i2*eta+m` 展开相平面中 `h0=0` 到 `h3=0` 的四条直线，并与 `run_uas_smc_sim.m` 的绘图公式逐项一致。
+其中 $\alpha$ 与 $\lambda$ 由 $\xi_1,\xi_2,\beta$ 按辅助面交点位于切换面上的约束解析计算。由 `h_i=omega_i1*sigma+omega_i2*eta+m` 展开相平面中 `h0=0` 到 `h3=0` 的四条直线，并与 `run_uas_smc_sim.m` 的绘图公式逐项一致。
 
 - [ ] **Step 4: 推导连续趋近律和控制律**
 
@@ -359,10 +359,10 @@ Expected: `DOC_FILES_VERIFY: pass`。
 Run:
 
 ```powershell
-& 'D:\matlab\matlabr2025a\bin\matlab.exe' -batch "r=runtests('test_uas_smc.m'); assert(numel(r)==9 && all([r.Passed])); fprintf('MATLAB_VERIFY: %d/%d passed\n',sum([r.Passed]),numel(r));"
+& 'D:\matlab\matlabr2025a\bin\matlab.exe' -batch "r=runtests('test_uas_smc.m'); assert(numel(r)==10 && all([r.Passed])); fprintf('MATLAB_VERIFY: %d/%d passed\n',sum([r.Passed]),numel(r));"
 ```
 
-Expected: `MATLAB_VERIFY: 9/9 passed`。
+Expected: `MATLAB_VERIFY: 10/10 passed`。
 
 - [ ] **Step 3: 人工一致性复核**
 

@@ -12,12 +12,27 @@ end
 function testRequiredImplementationFilesExist(testCase)
 required = { ...
     'uas_smc_controller.m', ...
+    'uas_smc_auxiliary_geometry.m', ...
     'run_uas_smc_sim.m', ...
     'optimize_uas_smc.m'};
 for idx = 1:numel(required)
     verifyEqual(testCase, exist(fullfile(testCase.TestData.root, required{idx}), 'file'), 2, ...
         sprintf('Missing required implementation file: %s', required{idx}));
 end
+end
+
+function testAuxiliaryVerticesLieOnSwitchingSurfaces(testCase)
+[~, ctrl] = controllerFixture();
+geometry = uas_smc_auxiliary_geometry(ctrl);
+
+verifyLessThan(testCase, max(abs(geometry.switchingResidual)), 1e-12);
+verifyGreaterThan(testCase, geometry.alpha, ctrl.xi2);
+verifyLessThan(testCase, geometry.alpha, ctrl.xi1);
+verifyGreaterThan(testCase, geometry.sideScale, 0);
+
+h = geometry.coefficients * geometry.vertices.' + geometry.m_aux;
+verifyGreaterThanOrEqual(testCase, min(h, [], 'all'), -1e-12);
+verifyEqual(testCase, sum(abs(h) < 1e-12, 1), 2 * ones(1, 4));
 end
 
 function testControllerOriginIsEquilibrium(testCase)
@@ -136,7 +151,7 @@ optimizer_options = struct( ...
 run(fullfile(testCase.TestData.root, 'optimize_uas_smc.m'));
 
 q = optimization_report.best.q;
-verifySize(testCase, q, [1, 8]);
+verifySize(testCase, q, [1, 7]);
 verifyGreaterThan(testCase, q(1), 0);
 verifyGreaterThan(testCase, q(2), 0);
 verifyGreaterThan(testCase, q(3), 0);
@@ -144,10 +159,11 @@ verifyGreaterThan(testCase, q(4), 0);
 verifyGreaterThan(testCase, q(5), 0);
 verifyGreaterThan(testCase, q(6), 0);
 verifyGreaterThan(testCase, q(7), 0);
-verifyGreaterThan(testCase, q(8), 0);
 verifyGreaterThan(testCase, optimization_report.best.ctrl.xi1, optimization_report.best.ctrl.xi2);
 verifyLessThan(testCase, optimization_report.best.ctrl.a, 0);
 verifyGreaterThan(testCase, optimization_report.best.ctrl.b, 0);
+geometry = uas_smc_auxiliary_geometry(optimization_report.best.ctrl);
+verifyLessThan(testCase, max(abs(geometry.switchingResidual)), 1e-12);
 verifyLessThanOrEqual(testCase, optimization_report.best.score, ...
     optimization_report.baseline.score + 1e-12);
 verifyEqual(testCase, optimization_report.metadata.seed, 20260717);
@@ -202,11 +218,14 @@ optimized = load(fullfile(resultsDir, 'uas_smc_best_params.mat'));
 report = optimized.optimization_report;
 verifyEqual(testCase, report.metadata.particles, 40);
 verifyEqual(testCase, report.metadata.iterations, 60);
+verifyEqual(testCase, report.metadata.parameterCount, 7);
 verifyEqual(testCase, report.metadata.trainingScenarioCount, 16);
 verifyEqual(testCase, report.metadata.validationScenarioCount, 100);
 verifyLessThanOrEqual(testCase, report.best.score, report.baseline.score);
 verifyTrue(testCase, all(report.best.evaluation.feasible));
 verifyGreaterThanOrEqual(testCase, report.validation.passRate, 0.95);
+geometry = uas_smc_auxiliary_geometry(report.best.ctrl);
+verifyLessThan(testCase, max(abs(geometry.switchingResidual)), 1e-12);
 
 validation = report.validation.evaluation;
 verifyTrue(testCase, all(validation.allFinite));
@@ -234,10 +253,7 @@ model = struct('A', A, 'B', B, 'S', S, 'SB', S * B);
 ctrl = struct( ...
     'xi1', 2, ...
     'xi2', 1, ...
-    'a', -1, ...
-    'b', 1, ...
     'k', 4, ...
-    'alpha', 1, ...
     'beta', 1, ...
     'm_aux', 0.01, ...
     'u_max', 12, ...

@@ -15,9 +15,9 @@ end
 if ctrl.xi1 <= ctrl.xi2 || ctrl.xi2 <= 0
     error('uas_smc:InvalidSwitchingSurfaces', 'Require xi1 > xi2 > 0.');
 end
-if ctrl.alpha <= 0 || ctrl.beta <= 0 || ctrl.k <= 0
+if ctrl.beta <= 0 || ctrl.k <= 0
     error('uas_smc:InvalidControllerParameters', ...
-        'Require alpha, beta, and k to be positive.');
+        'Require beta and k to be positive.');
 end
 if abs(model.SB) <= ctrl.tol
     error('uas_smc:SingularInputChannel', 'The scalar input gain S*B is too small.');
@@ -26,24 +26,19 @@ end
 sigma = model.S * x;
 s1 = sigma + ctrl.xi1 * eta;
 s2 = sigma + ctrl.xi2 * eta;
+geometry = uas_smc_auxiliary_geometry(ctrl);
 
 if s1 < 0 && s2 < 0
     region = 0;
-    omega1 = 1;
-    omega2 = ctrl.alpha;
 elseif s1 < 0 && s2 >= 0
     region = 1;
-    omega1 = -1;
-    omega2 = ctrl.beta;
 elseif s1 >= 0 && s2 < 0
     region = 2;
-    omega1 = 1;
-    omega2 = -ctrl.beta;
 else
     region = 3;
-    omega1 = -1;
-    omega2 = -ctrl.alpha;
 end
+omega1 = geometry.omega1(region + 1);
+omega2 = geometry.omega2(region + 1);
 
 if s1 * s2 <= 0 && abs(s1) > ctrl.tol
     epsilon = abs(s2) / (abs(s1) + abs(s2));
@@ -53,12 +48,12 @@ else
     epsilon = 1;
 end
 
-a = -ctrl.alpha;
-b = ctrl.beta;
+a = geometry.a;
+b = geometry.b;
 phi = epsilon * (a * sigma - ctrl.k * s2) ...
     + (1 - epsilon) * 0.5 * (a + b) * sigma;
 N = omega2 * sigma + omega1 * phi;
-h = omega1 * sigma + omega2 * eta + ctrl.m_aux;
+h = omega1 * sigma + omega2 * eta + geometry.m_aux;
 
 uUnsaturated = (-model.S * model.A * x + phi) / model.SB;
 u = min(max(uUnsaturated, -ctrl.u_max), ctrl.u_max);
